@@ -5,10 +5,15 @@
 //  Created by Yeswanth varma Kanumuri on 1/16/16.
 //  Copyright (c) 2016 Yeswanth varma Kanumuri. All rights reserved.
 //
-
 import SpriteKit
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
+    
+    var score = 0
+    
+    var scoreLabel = SKLabelNode()
+    
+    var gameoverLabel = SKLabelNode()
     
     var bird = SKSpriteNode()
     
@@ -18,26 +23,21 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     var pipe2 = SKSpriteNode()
     
+    var movingObjects = SKSpriteNode()
+    
+    var labelContainer = SKSpriteNode()
+    
     enum ColliderType: UInt32 {
         
         case Bird = 1
         case Object = 2
+        case Gap = 4
         
     }
     
     var gameOver = false
     
-    override func didMoveToView(view: SKView) {
-        
-        bg.zPosition = 1
-        
-        pipe1.zPosition = 2
-        
-        pipe2.zPosition = 3
-        
-        bird.zPosition = 4
-        
-        self.physicsWorld.contactDelegate = self
+    func makebg() {
         
         let bgTexture = SKTexture(imageNamed: "bg.png")
         
@@ -58,11 +58,38 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             
             bg.runAction(movebgForever)
             
-            self.addChild(bg)
+            movingObjects.addChild(bg)
             
         }
         
+    }
+    
+    override func didMoveToView(view: SKView) {
         
+        bg.zPosition = 1
+        
+        pipe1.zPosition = 2
+        
+        pipe2.zPosition = 3
+        
+        bird.zPosition = 4
+        
+        gameoverLabel.zPosition = 5
+        
+        scoreLabel.zPosition = 5
+        
+        self.physicsWorld.contactDelegate = self
+        
+        self.addChild(movingObjects)
+        self.addChild(labelContainer)
+        
+        makebg()
+        
+        scoreLabel.fontName = "Helvetica"
+        scoreLabel.fontSize = 60
+        scoreLabel.text = "0"
+        scoreLabel.position = CGPointMake(CGRectGetMidX(self.frame), self.frame.size.height - 70)
+        self.addChild(scoreLabel)
         
         
         let birdTexture = SKTexture(imageNamed: "flappy1.png")
@@ -88,11 +115,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         bird.physicsBody!.contactTestBitMask = ColliderType.Object.rawValue
         bird.physicsBody!.collisionBitMask = ColliderType.Object.rawValue
         
+        //added allowRotation property and set to false - to disable the effect of rotation when collides with a pipe
+        bird.physicsBody!.allowsRotation = false
+        
         
         self.addChild(bird)
         
-        
-        var ground = SKNode()
+        // changed ground from var to let
+        let ground = SKNode()
         ground.position = CGPointMake(0, 0)
         ground.physicsBody = SKPhysicsBody(rectangleOfSize: CGSizeMake(self.frame.size.width, 1))
         ground.physicsBody!.dynamic = false
@@ -122,9 +152,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let removePipes = SKAction.removeFromParent()
         let moveAndRemovePipes = SKAction.sequence([movePipes, removePipes])
         
-        
-        var pipeTexture = SKTexture(imageNamed: "pipe1.png")
-        var pipe1 = SKSpriteNode(texture: pipeTexture)
+        //changed pipeTexture and pipe1 from var to let
+        let pipeTexture = SKTexture(imageNamed: "pipe1.png")
+        let pipe1 = SKSpriteNode(texture: pipeTexture)
         pipe1.position = CGPoint(x: CGRectGetMidX(self.frame) + self.frame.size.width, y: CGRectGetMidY(self.frame) + pipeTexture.size().height/2 + gapHeight / 2 + pipeOffset)
         pipe1.runAction(moveAndRemovePipes)
         
@@ -136,10 +166,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         pipe1.physicsBody!.collisionBitMask = ColliderType.Object.rawValue
         
         
-        self.addChild(pipe1)
+        movingObjects.addChild(pipe1)
         
-        var pipe2Texture = SKTexture(imageNamed: "pipe2.png")
-        var pipe2 = SKSpriteNode(texture: pipe2Texture)
+        //changed pipe2Texture and pipe2 from var to let
+        let pipe2Texture = SKTexture(imageNamed: "pipe2.png")
+        let pipe2 = SKSpriteNode(texture: pipe2Texture)
         pipe2.position = CGPoint(x: CGRectGetMidX(self.frame) + self.frame.size.width, y: CGRectGetMidY(self.frame) - pipe2Texture.size().height/2 - gapHeight / 2 + pipeOffset)
         pipe2.runAction(moveAndRemovePipes)
         
@@ -150,17 +181,48 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         pipe2.physicsBody!.contactTestBitMask = ColliderType.Object.rawValue
         pipe2.physicsBody!.collisionBitMask = ColliderType.Object.rawValue
         
-        self.addChild(pipe2)
+        movingObjects.addChild(pipe2)
+        
+        //changed gap variable from var to let
+        let gap = SKNode()
+        gap.position = CGPoint(x: CGRectGetMidX(self.frame) + self.frame.size.width, y: CGRectGetMidY(self.frame) + pipeOffset)
+        gap.runAction(moveAndRemovePipes)
+        gap.physicsBody = SKPhysicsBody(rectangleOfSize: CGSizeMake(pipe1.size.width, gapHeight))
+        gap.physicsBody!.dynamic = false
+        
+        gap.physicsBody!.categoryBitMask = ColliderType.Gap.rawValue
+        gap.physicsBody!.contactTestBitMask = ColliderType.Bird.rawValue
+        gap.physicsBody!.collisionBitMask = ColliderType.Gap.rawValue
+        
+        movingObjects.addChild(gap)
         
     }
     
     func didBeginContact(contact: SKPhysicsContact) {
         
-        print("We have contact!")
-        
-        gameOver = true
-        
-        self.speed = 0
+        if contact.bodyA.categoryBitMask == ColliderType.Gap.rawValue || contact.bodyB.categoryBitMask == ColliderType.Gap.rawValue {
+            
+            score++
+            
+            scoreLabel.text = String(score)
+            
+        } else {
+            
+            if gameOver == false {
+                
+                gameOver = true
+                
+                self.speed = 0
+                
+                gameoverLabel.fontName = "Helvetica"
+                gameoverLabel.fontSize = 30
+                gameoverLabel.text = "Game Over! Tap to play again."
+                gameoverLabel.position = CGPointMake(CGRectGetMidX(self.frame), CGRectGetMidY(self.frame))
+                labelContainer.addChild(gameoverLabel)
+                
+            }
+            
+        }
         
     }
     
@@ -168,9 +230,31 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
         
         if gameOver == false {
-            bird.physicsBody!.dynamic = true
+            
+             bird.physicsBody!.dynamic = true
+            
             bird.physicsBody!.velocity = CGVectorMake(0, 0)
             bird.physicsBody!.applyImpulse(CGVectorMake(0, 50))
+            
+        } else {
+            
+            score = 0
+            
+            scoreLabel.text = "0"
+            
+            bird.position = CGPointMake(CGRectGetMidX(self.frame), CGRectGetMidY(self.frame))
+            
+            bird.physicsBody!.velocity = CGVectorMake(0, 0)
+            
+            movingObjects.removeAllChildren()
+            
+            makebg()
+            
+            self.speed = 1
+            
+            gameOver = false
+            
+            labelContainer.removeAllChildren()
             
         }
     }
